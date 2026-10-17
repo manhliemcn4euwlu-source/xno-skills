@@ -181,7 +181,14 @@ export function formatNano(raw: string | number): string {
   if (!raw || raw === '') return '0';
   if (raw.startsWith('-')) throw new Error('formatNano: negative values not supported');
 
-  const { integer: intPart } = parseDecimal(raw);
+  const { integer: intPart, decimal: rawDecPart } = parseDecimal(raw);
+  // raw is the smallest indivisible unit, exactly as in rawToNano: a fractional
+  // raw value must not be silently truncated to its integer part. Without this,
+  // formatNano('1.5') returned the string for 1 raw and formatNano('1.999...')
+  // returned the string for 1 raw, so a caller reading the formatted amount saw
+  // a different number than the one it passed in.
+  if (rawDecPart.length > 0 && /[1-9]/.test(rawDecPart))
+    throw new Error('formatNano: raw amounts must be integers (raw is the smallest indivisible unit)');
   const rawBigInt = BigInt(intPart);
 
   // Get the Nano value and remainder

@@ -128,6 +128,26 @@ describe('formatNano', () => {
     expect(() => formatNano('-999')).toThrow('formatNano: negative values not supported');
     expect(() => formatNano('-1500000000000000000000000000000')).toThrow('formatNano: negative values not supported');
   });
+
+  it('rejects fractional raw like rawToNano does (regression: silent truncation)', () => {
+    // Without this guard, formatNano('1.5') returned the string for 1 raw and
+    // formatNano('1.999999999999999999999999999999') also returned the string
+    // for 1 raw: the formatted amount named a different number than the input,
+    // with no error. rawToNano already refused the same input; the two
+    // raw-side entry points disagreed.
+    expect(() => formatNano('1.5')).toThrow(
+      'formatNano: raw amounts must be integers (raw is the smallest indivisible unit)',
+    );
+    expect(() => formatNano('1.999999999999999999999999999999')).toThrow(/raw amounts must be integers/);
+    expect(() => formatNano('0.5')).toThrow(/raw amounts must be integers/);
+  });
+
+  it('still accepts a trailing-zero fractional raw that equals an integer', () => {
+    // '1.0' and '1.00' name the whole number 1; they carry no fractional
+    // value, so refusing them would be a false positive.
+    expect(formatNano('1.0')).toBe(formatNano('1'));
+    expect(formatNano('1.000')).toBe(formatNano('1'));
+  });
 });
 
 describe('convertUnits', () => {
