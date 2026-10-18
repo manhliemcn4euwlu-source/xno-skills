@@ -129,24 +129,26 @@ describe('formatNano', () => {
     expect(() => formatNano('-1500000000000000000000000000000')).toThrow('formatNano: negative values not supported');
   });
 
-  it('rejects fractional raw like rawToNano does (regression: silent truncation)', () => {
+  it('rejects any raw string with a decimal point (regression: silent truncation)', () => {
     // Without this guard, formatNano('1.5') returned the string for 1 raw and
     // formatNano('1.999999999999999999999999999999') also returned the string
     // for 1 raw: the formatted amount named a different number than the input,
-    // with no error. rawToNano already refused the same input; the two
-    // raw-side entry points disagreed.
+    // with no error. A raw string is digits only; "1.0" is refused too, so the
+    // policy has no special cases.
     expect(() => formatNano('1.5')).toThrow(
-      'formatNano: raw amounts must be integers (raw is the smallest indivisible unit)',
+      'formatNano: raw must be a string of digits only (raw is the smallest indivisible unit)',
     );
-    expect(() => formatNano('1.999999999999999999999999999999')).toThrow(/raw amounts must be integers/);
-    expect(() => formatNano('0.5')).toThrow(/raw amounts must be integers/);
+    expect(() => formatNano('1.999999999999999999999999999999')).toThrow(/digits only/);
+    expect(() => formatNano('0.5')).toThrow(/digits only/);
+    expect(() => formatNano('1.0')).toThrow(/digits only/);
+    expect(() => formatNano('1.')).toThrow(/digits only/);
+    expect(() => formatNano('.5')).toThrow(/digits only/);
   });
 
-  it('still accepts a trailing-zero fractional raw that equals an integer', () => {
-    // '1.0' and '1.00' name the whole number 1; they carry no fractional
-    // value, so refusing them would be a false positive.
-    expect(formatNano('1.0')).toBe(formatNano('1'));
-    expect(formatNano('1.000')).toBe(formatNano('1'));
+  it('agrees with rawToNano on every digits-only input', () => {
+    for (const raw of ['1', '10', '1000000000000000000000000000000', '1234567890000000000000000000000']) {
+      expect(formatNano(raw)).toBe(rawToNano(raw));
+    }
   });
 });
 
@@ -172,6 +174,10 @@ describe('fractional raw input (regression: silent truncation)', () => {
     // raw is the smallest indivisible unit; 1.5 raw is not a valid amount.
     // Either throw, or do not return a value computed from the integer part alone.
     expect(() => rawToNano('1.5')).toThrow();
+    // Digits only: a decimal point is refused even when nothing follows it or
+    // only zeros do, so "1.0" is not quietly read as 1 raw either.
+    expect(() => rawToNano('1.0')).toThrow(/digits only/);
+    expect(() => rawToNano('1.')).toThrow(/digits only/);
   });
 
   it('a fractional raw input must not produce a self-inconsistent pair', () => {
